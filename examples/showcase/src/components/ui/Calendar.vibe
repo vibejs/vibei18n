@@ -1,0 +1,303 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  useId,
+  useTemplateRef,
+  watch,
+} from "@usevibejs/ui";
+import type { ClassValue } from "@usevibejs/ui";
+import { addDays, addMonths, dateKey, firstWeekday, parseDate } from "../../lib/calendar.ts";
+import { logicalKey } from "../../lib/collection.ts";
+import { cn } from "../../lib/utils.ts";
+import Button from "./Button.vibe";
+
+defineOptions({ inheritAttrs: false });
+const {
+  class: className,
+  mode = "single",
+  locale = "en-US",
+  weekStartsOn,
+  min,
+  max,
+  disabled,
+  showOutsideDays = true,
+  label = "Choose a date",
+  defaultMonth,
+  autofocus = false,
+} = defineProps<{
+  class?: ClassValue;
+  mode?: "single" | "multiple" | "range";
+  locale?: string;
+  weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  min?: string;
+  max?: string;
+  disabled?: boolean | string[] | ((date: string) => boolean);
+  showOutsideDays?: boolean;
+  label?: string;
+  defaultMonth?: string;
+  autofocus?: boolean;
+}>();
+const model = defineModel<string | null>({ default: () => null });
+const values = defineModel<string[]>("values", { default: () => [] });
+const range = defineModel<{ from?: string; to?: string }>("range", { default: () => ({}) });
+const initial = (): string | undefined =>
+  mode === "multiple"
+    ? values.value[0]
+    : mode === "range"
+      ? range.value.from
+      : (model.value ?? undefined);
+const month = defineModel<string>("month", { default: () => "" });
+if (!month.value) month.value = defaultMonth ?? (initial() ?? dateKey(new Date())).slice(0, 7);
+const root = useTemplateRef<HTMLElement>("root");
+const id = useId();
+const start = computed(
+  () => parseDate(month.value + "-01") ?? parseDate(dateKey(new Date()).slice(0, 7) + "-01")!,
+);
+const focused = ref(initial() ?? dateKey(new Date()));
+const weekStart = computed(() => weekStartsOn ?? firstWeekday(locale));
+const format = (options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat =>
+  new Intl.DateTimeFormat(locale, { ...options, calendar: "gregory" });
+const heading = computed(() => format({ month: "long", year: "numeric" }).format(start.value));
+const weekdays = computed(() =>
+  Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(new Date(2024, 0, 7, 12), (weekStart.value + index) % 7);
+    return {
+      short: format({ weekday: "short" }).format(date),
+      long: format({ weekday: "long" }).format(date),
+    };
+  }),
+);
+const weeks = computed(() => {
+  const first = addDays(start.value, -((start.value.getDay() - weekStart.value + 7) % 7));
+  const end = addMonths(start.value, 1);
+  // Count calendar days rather than elapsed hours across daylight-saving transitions.
+  const count = Math.ceil(Math.round((end.getTime() - first.getTime()) / 86400000) / 7);
+  return Array.from({ length: count }, (_, row) =>
+    Array.from({ length: 7 }, (_, column) => {
+      const date = addDays(first, row * 7 + column);
+      return { key: dateKey(date), date, outside: date.getMonth() !== start.value.getMonth() };
+    }),
+  );
+});
+const unavailable = (date: string): boolean =>
+  !!(
+    (min && date < min) ||
+    (max && date > max) ||
+    (typeof disabled === "function"
+      ? disabled(date)
+      : Array.isArray(disabled)
+        ? disabled.includes(date)
+        : disabled)
+  );
+const selected = (date: string): boolean =>
+  mode === "single"
+    ? model.value === date
+    : mode === "multiple"
+      ? values.value.includes(date)
+      : !!(
+          range.value.from &&
+          date >= range.value.from &&
+          date <= (range.value.to ?? range.value.from)
+        );
+const tabDate = computed(() =>
+  weeks.value.flat().some((day) => day.key === focused.value && (showOutsideDays || !day.outside))
+    ? focused.value
+    : dateKey(start.value),
+);
+const canNavigate = (amount: number): boolean => {
+  const target = addMonths(start.value, amount);
+  return (
+    !(min && dateKey(addDays(addMonths(target, 1), -1)) < min) && !(max && dateKey(target) > max)
+  );
+};
+async function focusDate(date: Date): Promise<void> {
+  focused.value = dateKey(date);
+  month.value = focused.value.slice(0, 7);
+  await nextTick();
+  root.value?.querySelector<HTMLButtonElement>(`[data-date="${focused.value}"]`)?.focus();
+}
+function navigate(amount: number): void {
+  if (!canNavigate(amount)) return;
+  const target = addMonths(start.value, amount);
+  focused.value = dateKey(target);
+  month.value = focused.value.slice(0, 7);
+}
+function choose(date: string): void {
+  if (unavailable(date)) return;
+  focused.value = date;
+  if (mode === "multiple") {
+    const dates = values.value;
+    values.value = dates.includes(date)
+      ? dates.filter((item) => item !== date)
+      : [...dates, date].sort();
+  } else if (mode === "range") {
+    const from = range.value.from;
+    if (!from || range.value.to) range.value = { from: date };
+    else {
+      const [a, b] = [from, date].sort();
+      // Reject ranges that cross a disabled date, including a disabled endpoint.
+      for (let current = parseDate(a)!; dateKey(current) <= b; current = addDays(current, 1)) {
+        if (unavailable(dateKey(current))) {
+          range.value = { from: date };
+          return;
+        }
+      }
+      range.value = { from: a, to: b };
+    }
+  } else model.value = model.value === date ? null : date;
+}
+function onKeydown(event: KeyboardEvent, date: Date): void {
+  const offset = (date.getDay() - weekStart.value + 7) % 7;
+  const days: Record<string, number> = {
+    ArrowLeft: -1,
+    ArrowRight: 1,
+    ArrowUp: -7,
+    ArrowDown: 7,
+    Home: -offset,
+    End: 6 - offset,
+  };
+  // In right-to-left text the week runs from right to left.
+  const key = logicalKey(event.key, event.currentTarget as Element);
+  let target: Date;
+  if (key in days) target = addDays(date, days[key]);
+  else if (event.key === "PageUp" || event.key === "PageDown")
+    target = addMonths(date, (event.key === "PageUp" ? -1 : 1) * (event.shiftKey ? 12 : 1));
+  else return;
+  event.preventDefault();
+  if (min && dateKey(target) < min) target = parseDate(min)!;
+  if (max && dateKey(target) > max) target = parseDate(max)!;
+  void focusDate(target);
+}
+watch(
+  () => initial(),
+  (value) => {
+    if (value && parseDate(value)) focused.value = value;
+  },
+);
+const focus = (): Promise<void> => focusDate(parseDate(tabDate.value)!);
+// Native popover beforetoggle runs before the browser reveals the element. Wait for
+// the next frame so its default focus step cannot overwrite the selected day.
+let focusFrame = 0;
+function applyAutofocus(): void {
+  cancelAnimationFrame(focusFrame);
+  if (autofocus)
+    focusFrame = requestAnimationFrame(() => {
+      if (autofocus) void focus();
+    });
+}
+watch(() => autofocus, applyAutofocus, { flush: "post" });
+onMounted(applyAutofocus);
+onUnmounted(() => cancelAnimationFrame(focusFrame));
+defineExpose({ focus });
+const dayClass =
+  "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 leading-none font-normal data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-accent-foreground [&>span]:text-xs [&>span]:opacity-70 aria-disabled:opacity-50";
+</script>
+
+<template>
+  <div
+    ref="root"
+    data-slot="calendar"
+    v-bind="$attrs"
+    :class="
+      cn(
+        'group/calendar w-fit bg-background p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
+        className,
+      )
+    "
+  >
+    <div class="relative flex flex-col gap-4">
+      <div class="flex w-full items-center justify-between gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Previous month"
+          :disabled="!canNavigate(-1)"
+          class="size-(--cell-size) p-0 select-none aria-disabled:opacity-50"
+          @click="navigate(-1)"
+          >‹</Button
+        >
+        <div :id="id" aria-live="polite" class="text-sm font-medium select-none">{{ heading }}</div>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Next month"
+          :disabled="!canNavigate(1)"
+          class="size-(--cell-size) p-0 select-none aria-disabled:opacity-50"
+          @click="navigate(1)"
+          >›</Button
+        >
+      </div>
+      <table
+        role="grid"
+        :aria-label="label + ': ' + heading"
+        :aria-multiselectable="mode !== 'single' || undefined"
+        class="w-full border-collapse"
+      >
+        <thead>
+          <tr role="row">
+            <th
+              v-for="day in weekdays"
+              :key="day.long"
+              scope="col"
+              :abbr="day.long"
+              class="h-8 rounded-md text-[0.8rem] font-normal text-muted-foreground select-none"
+            >
+              {{ day.short }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(week, index) in weeks" :key="index" role="row">
+            <td
+              v-for="day in week"
+              :key="day.key"
+              role="gridcell"
+              :aria-selected="selected(day.key)"
+              :aria-disabled="unavailable(day.key) || undefined"
+              class="relative aspect-square p-0 text-center select-none"
+            >
+              <Button
+                v-if="showOutsideDays || !day.outside"
+                variant="ghost"
+                size="icon"
+                :data-date="day.key"
+                v-bind="{ autofocus: autofocus && day.key === tabDate }"
+                :tabindex="day.key === tabDate ? 0 : -1"
+                :aria-label="format({ dateStyle: 'full' }).format(day.date)"
+                :aria-current="day.key === dateKey(new Date()) ? 'date' : undefined"
+                :aria-disabled="unavailable(day.key) || undefined"
+                :data-selected-single="mode !== 'range' && selected(day.key)"
+                :data-range-start="mode === 'range' && day.key === range.from"
+                :data-range-end="mode === 'range' && day.key === range.to"
+                :data-range-middle="
+                  mode === 'range' &&
+                  selected(day.key) &&
+                  day.key !== range.from &&
+                  day.key !== range.to
+                "
+                :class="
+                  cn(
+                    dayClass,
+                    day.outside && 'text-muted-foreground',
+                    day.key === dateKey(new Date()) &&
+                      !selected(day.key) &&
+                      'bg-accent text-accent-foreground',
+                  )
+                "
+                @focus="focused = day.key"
+                @click="choose(day.key)"
+                @keydown="onKeydown($event, day.date)"
+                >{{ new Intl.NumberFormat(locale).format(day.date.getDate()) }}</Button
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</template>

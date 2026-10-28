@@ -1,0 +1,10 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+const { dir = "ltr" } = defineProps<{ dir?: "ltr" | "rtl" }>();
+defineSlots<{ default?: (props: {}) => unknown }>();
+</script>
+
+<template>
+  <!-- Components read the direction from the nearest dir attribute, so this wrapper sets one. -->
+  <div data-slot="direction" :dir="dir" class="contents"><slot /></div>
+</template>

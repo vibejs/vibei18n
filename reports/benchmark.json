@@ -1,0 +1,36 @@
+{
+  "node": "v24.22.1",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "simple": {
+    "iterations": 50000,
+    "milliseconds": 12.386333,
+    "nanosecondsPerOperation": 247.72666
+  },
+  "icu": {
+    "iterations": 50000,
+    "milliseconds": 73.409708,
+    "nanosecondsPerOperation": 1468.19416
+  },
+  "number": {
+    "iterations": 50000,
+    "milliseconds": 32.472916000000026,
+    "nanosecondsPerOperation": 649.4583200000005
+  },
+  "localeSwitch": {
+    "iterations": 1000,
+    "milliseconds": 7.895584000000014
+  },
+  "heapDeltaBytes": 16024024,
+  "messageCache": {
+    "size": 2,
+    "hits": 101998,
+    "misses": 2
+  },
+  "formatterCache": {
+    "size": 3,
+    "hits": 152997,
+    "misses": 3
+  },
+  "note": "Single-process warmed microbenchmark. Heap delta includes ordinary allocations and is not a retained-memory or leak measurement."
+}

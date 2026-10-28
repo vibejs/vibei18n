@@ -1,0 +1,37 @@
+<script setup lang="ts">
+import { createLocaleContext } from "../../../src/index.ts";
+import PreviewLeaf from "./PreviewLeaf.vibe";
+import Button from "./components/ui/Button.vibe";
+const { locale, dir, t, setLocale } = createLocaleContext({
+  locale: "ar",
+  fallbackLocale: "en",
+  messages: {
+    ar: {
+      preview: "مرحباً بك في مساحة العمل",
+      items:
+        "{count, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصراً} other {# عنصر}}",
+    },
+    he: {
+      preview: "ברוכים הבאים לסביבת העבודה",
+      items: "{count, plural, one {פריט אחד} two {שני פריטים} other {# פריטים}}",
+    },
+    en: {
+      preview: "Welcome to the workspace",
+      items: "{count, plural, one {# item} other {# items}}",
+    },
+  },
+});
+</script>
+<template>
+  <section class="panel nested-preview" :lang="locale" :dir="dir" data-testid="nested-preview">
+    <span class="eyebrow">ISOLATED LOCALE CONTEXT · {{ locale }}</span>
+    <h3>{{ t("preview") }}</h3>
+    <p>{{ t("items", { count: 7 }) }}</p>
+    <PreviewLeaf />
+    <div class="flex gap-2">
+      <Button variant="outline" @click="setLocale('ar')">العربية</Button
+      ><Button variant="outline" @click="setLocale('he')">עברית</Button
+      ><Button variant="outline" @click="setLocale('en')">English</Button>
+    </div>
+  </section>
+</template>

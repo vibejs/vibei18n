@@ -1,0 +1,81 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import { onUnmounted, useTemplateRef, watch } from "@usevibejs/ui";
+import type { ClassValue, Ref } from "@usevibejs/ui";
+import { anchorOf, injectOverlay, useFloating, usePopover } from "../../lib/overlay.ts";
+import { cn } from "../../lib/utils.ts";
+
+defineOptions({ inheritAttrs: false });
+
+const {
+  class: className,
+  side = "bottom",
+  align = "start",
+  sideOffset = 6,
+} = defineProps<{
+  class?: ClassValue;
+  side?: "top" | "bottom";
+  align?: "start" | "center" | "end";
+  sideOffset?: number;
+}>();
+defineSlots<{ default?: (props: {}) => unknown }>();
+const combobox = injectOverlay<{
+  list: string;
+  model: Ref<string>;
+  search: Ref<string>;
+  filtering: Ref<boolean>;
+  labels: Map<string, string>;
+  active: Ref<string>;
+  activate: (option: HTMLElement) => void;
+  reset: () => void;
+  onKeydown: (event: KeyboardEvent) => boolean;
+  select: (value: string) => void;
+}>("Combobox");
+const content = useTemplateRef<HTMLElement>("content");
+const onToggle = usePopover(content, combobox.open);
+const placed = useFloating(
+  () => anchorOf(combobox.id),
+  content,
+  () => combobox.open.value,
+  () => ({ side, align, sideOffset, alignOffset: 0 }),
+);
+// A press outside the input and the list closes it, as light dismiss would.
+const dismiss = (event: PointerEvent): void => {
+  const target = event.target as Node;
+  if (!content.value!.contains(target) && !anchorOf(combobox.id)!.contains(target))
+    combobox.open.value = false;
+};
+watch(
+  combobox.open,
+  (open) => {
+    document.removeEventListener("pointerdown", dismiss);
+    if (!open) return;
+    content.value!.style.minWidth = `${(anchorOf(combobox.id) as HTMLElement).offsetWidth}px`;
+    document.addEventListener("pointerdown", dismiss);
+  },
+  { flush: "post" },
+);
+onUnmounted(() => document.removeEventListener("pointerdown", dismiss));
+</script>
+
+<template>
+  <!-- A manual popover: the input keeps focus, and light dismiss would close it on every click there. -->
+  <div
+    ref="content"
+    role="listbox"
+    data-slot="combobox-content"
+    :id="combobox.list"
+    :data-state="combobox.open.value ? 'open' : 'closed'"
+    :data-side="placed"
+    v-bind="{ popover: 'manual', ...$attrs }"
+    :class="
+      cn(
+        'group/combobox-content max-h-96 overflow-hidden overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 fixed inset-auto m-0 transition-[opacity,scale,translate,overlay,display] transition-discrete duration-100 opacity-0 scale-95 open:opacity-100 open:scale-100 starting:open:opacity-0 starting:open:scale-95 motion-reduce:transition-none',
+        className,
+      )
+    "
+    @beforetoggle="onToggle"
+  >
+    <slot />
+  </div>
+</template>

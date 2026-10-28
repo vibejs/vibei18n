@@ -1,0 +1,54 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import { useTemplateRef } from "@usevibejs/ui";
+import type { ClassValue } from "@usevibejs/ui";
+import { cn } from "../../lib/utils.ts";
+import Input from "./Input.vibe";
+
+defineOptions({ inheritAttrs: false });
+
+const {
+  class: className,
+  type = "text",
+  name,
+  placeholder,
+  disabled,
+  required,
+  readonly,
+  autocomplete,
+} = defineProps<{
+  class?: ClassValue;
+  type?: "text" | "email" | "password" | "search" | "tel" | "url";
+  name?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+  readonly?: boolean;
+  autocomplete?: string;
+}>();
+const model = defineModel<string>({ default: () => "" });
+const input = useTemplateRef<{ focus: () => void }>("input");
+defineExpose({ focus: () => input.value?.focus() });
+</script>
+
+<template>
+  <Input
+    ref="input"
+    v-model="model"
+    data-slot="input-group-control"
+    :type="type"
+    :name="name"
+    :placeholder="placeholder"
+    :disabled="disabled"
+    :required="required"
+    :readonly="readonly"
+    :autocomplete="autocomplete"
+    v-bind="$attrs"
+    :class="
+      cn(
+        'flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent',
+        className,
+      )
+    "
+  />
+</template>

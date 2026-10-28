@@ -1,0 +1,546 @@
+[
+  {
+    "id": "getting-started",
+    "title": "Getting started",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "VibeI18n brings ICU-powered, reactive internationalization to Vibe.js. Every Language. One Framework."
+      },
+      {
+        "kind": "text",
+        "text": "Install `@usevibejs/i18n` alongside `@usevibejs/ui`. Use matching UI and compiler versions. Node 24.15+ or 26+ is supported; browsers need native Intl and full locale data. This release targets client-rendered Vibe.js 0.1.0."
+      },
+      {
+        "kind": "heading",
+        "text": "Create an instance"
+      },
+      {
+        "kind": "code",
+        "text": "import { createI18n, defineMessages } from \"@usevibejs/i18n\";\nconst en = defineMessages({ welcome: \"Welcome, {name}!\", save: \"Save\" });\nexport const i18n = createI18n({\n  locale: \"en\",\n  fallbackLocale: \"en\",\n  messages: { en, tr: { welcome: \"Hoş geldin, {name}!\", save: \"Kaydet\" } },\n});\nawait i18n.ready;\ncreateApp(App).use(i18n).mount(\"#app\");"
+      },
+      {
+        "kind": "heading",
+        "text": "First translation"
+      },
+      {
+        "kind": "code",
+        "text": "<script setup lang=\"ts\">\nimport { useI18n } from '@usevibejs/i18n';\nconst { t, locale, setLocale } = useI18n();\n</script>\n<template>\n  <h1>{{ t('welcome', { name: 'Alex' }) }}</h1>\n  <button @click=\"setLocale('tr')\">Türkçe</button>\n  <p>{{ locale }}</p>\n</template>"
+      },
+      {
+        "kind": "text",
+        "text": "Calls in templates or computed getters react to the locale. A string assigned once during setup is a snapshot; use `computed(() => t(...))` for derived setup values. Await `setLocale`, then Vibe's `nextTick`, when you need to inspect updated DOM."
+      },
+      {
+        "kind": "text",
+        "text": "The repository includes a real compiled showcase and browser tests. Run `pnpm install`, `pnpm dev`, or `pnpm check`. No global registration, compiler patch, or forced component remount is required."
+      }
+    ]
+  },
+  {
+    "id": "core",
+    "title": "Catalogs, locales and namespaces",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "Catalogs are UTF-8 TypeScript objects or JSON resources. Leaves are ICU strings or FormatJS AST arrays. Nested objects flatten to dot keys; flat JSON dot keys are also accepted. A flattened collision is rejected. Namespaces use a separate colon: `billing:invoice.total`. An unprefixed key always uses the default namespace. Nesting does not implicitly create namespaces."
+      },
+      {
+        "kind": "heading",
+        "text": "Registration and independent loading"
+      },
+      {
+        "kind": "code",
+        "text": "const i18n = createI18n({\n  locale: \"en\",\n  fallbackLocale: \"en\",\n  messages: { en: { navigation: { home: \"Home\" } } },\n  namespaces: { en: { billing: { total: \"Total\" } } },\n  loaders: {\n    tr: {\n      default: () => import(\"./locales/tr.json\"),\n      billing: () => import(\"./locales/tr-billing.json\"),\n    },\n  },\n});\nawait i18n.preload(\"tr\", [\"billing\"]);\ni18n.register(\"en\", { total: \"Updated total\" }, \"billing\", \"merge\");\ni18n.dynamic(\"billing:total\");"
+      },
+      {
+        "kind": "text",
+        "text": "Register defaults to replacing a namespace. Merge keeps existing flattened keys and replaces collisions with the new value. Inputs are snapshotted. Loader module namespace objects and sole-default export wrappers are unwrapped; a raw loader catalog whose only root key is default must be supplied as an explicit module default or registered directly to avoid that reserved wrapper shape. No deep watch traverses catalog objects. App packages may register their own namespaces. Runtime namespace names are strings; generated schemas provide static namespaced keys."
+      },
+      {
+        "kind": "heading",
+        "text": "Fallback and missing translations"
+      },
+      {
+        "kind": "text",
+        "text": "Locales are canonicalized with Intl.Locale. Regional/script parent candidates use Intl.Locale fields and baseName, preserving a script candidate before a language candidate. `en-GB → en`, `zh-Hant-TW → zh-Hant → zh`; extensions are removed through baseName. Set `languageFallback: false` to disable structural parents. Explicit fallback maps are consulted before implicit parent candidates; `default` contains the final fallback list. Cycles are deduplicated."
+      },
+      {
+        "kind": "code",
+        "text": "fallbackLocale: { 'zh-Hant-TW': ['zh-Hant', 'en'], default: ['en'] }"
+      },
+      {
+        "kind": "text",
+        "text": "Fallback is deterministic for each namespace/key. No matching regional sibling is invented: pt-PT does not silently select pt-BR. A key formats with the locale of the resolved message. Separate number/date helpers format using the active locale. Missing defaults to displaying the key; `missing: 'throw'` or a function changes it. `onDiagnostic` receives key, namespace, requested and resolved locales and a safe message. Diagnostic duplicates are bounded and deduplicated. No interpolation values are logged. Warnings are opt-in through this callback; the runtime does not guess build mode or print to the console."
+      },
+      {
+        "kind": "heading",
+        "text": "Atomic transitions"
+      },
+      {
+        "kind": "text",
+        "text": "`locale` is active, `requestedLocale` is intent, `isLoading` describes the latest switch, and `error` is the latest switch error. `ready` loads the initial locale. Await it before mounting to avoid an uninitialized view. The previous active locale stays visible during later loading. A monotonically increasing request token prevents older loads from activating. A stale successful catalog can still be cached for later use. Failure keeps the active locale, rejects the promise and exposes error; retry by calling setLocale again."
+      },
+      {
+        "kind": "text",
+        "text": "`preload(locale, namespaces, reload)` deduplicates in-flight requests, caches successful resources and retries failed ones. Reload refreshes a cached resource; concurrent reloads share the current request. Loaders receive locale, namespace and a disposal AbortSignal. Disposing a context aborts willing loaders and prevents late commits even if a loader ignores cancellation. Resources remain cached per instance until disposal; applications with unbounded dynamic locale sets should create scoped instances. Message and Intl caches are LRU-bounded."
+      }
+    ]
+  },
+  {
+    "id": "formatting",
+    "title": "ICU and Intl formatting",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "VibeI18n uses intl-messageformat 12.1.4 and the matching FormatJS ICU parser. It does not parse ICU with regular expressions, execute translation code, or maintain manual plural rules."
+      },
+      {
+        "kind": "heading",
+        "text": "ICU messages"
+      },
+      {
+        "kind": "code",
+        "text": "{\n  \"hello\": \"Hello, {name}!\",\n  \"cart\": \"{count, plural, =0 {No items} one {# item} other {# items}}\",\n  \"subject\": \"{gender, select, male {He} female {She} other {They}}\",\n  \"rank\": \"{position, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}\",\n  \"amount\": \"{amount, number}\",\n  \"date\": \"{date, date, medium}\"\n}"
+      },
+      {
+        "kind": "text",
+        "text": "Plural categories belong to each language. Japanese/Korean use other; Russian, Polish and Arabic have additional categories. Exact =0 is evaluated separately from a category. ICU supports nesting, offsets, skeletons and escaping. Use apostrophes around syntax characters (`'{name}'` displays literal braces), and doubled apostrophes for a literal apostrophe when escaping. Use ASCII apostrophe deliberately; typographic apostrophes in prose are ordinary text. A required other branch is validated by the parser."
+      },
+      {
+        "kind": "heading",
+        "text": "Number and currency"
+      },
+      {
+        "kind": "code",
+        "text": "n(1234.56);\nn(0.35, { style: \"percent\" });\nn(1200, { notation: \"compact\" });\nn(1234.56, { style: \"currency\", currency: \"USD\", currencyDisplay: \"narrowSymbol\" });\nn(12, { style: \"unit\", unit: \"kilometer\" });"
+      },
+      {
+        "kind": "text",
+        "text": "All native Intl options are accepted, including grouping, sign and precision. Currency is always explicitly selected; language never implies a financial currency. Intl owns ISO currency precision, symbols and positioning. No exchange-rate conversion is performed. Named ICU presets can be supplied through `formats` (number/date/time maps); ordinary helpers accept the same native options directly."
+      },
+      {
+        "kind": "heading",
+        "text": "Dates and times"
+      },
+      {
+        "kind": "code",
+        "text": "const i18n = createI18n({ locale: \"en\", timeZone: \"Europe/Istanbul\", messages: { en } });\ni18n.d(new Date(), { dateStyle: \"long\", timeStyle: \"short\" });\ni18n.d(timestamp, { hour: \"2-digit\", hourCycle: \"h23\", timeZone: \"UTC\" });\ni18n.dateRange(start, end, { dateStyle: \"medium\" });"
+      },
+      {
+        "kind": "text",
+        "text": "The configured timezone applies to helpers and ICU date/time arguments. A per-call timezone overrides it. Intl handles DST and calendars; a Date is an instant, not a date-only business value. Preserve date-only values such as Calendar's YYYY-MM-DD until application-specific conversion is required. Range formatting uses native formatRange; older hosts get separately formatted endpoints joined with an en dash. There is no attempt to simulate native locale range elision."
+      },
+      {
+        "kind": "heading",
+        "text": "Relative time, lists and collation"
+      },
+      {
+        "kind": "code",
+        "text": "rt(-5, \"minute\");\nrt(-1, \"day\", { numeric: \"auto\" });\nlist([\"Apple\", \"Banana\", \"Orange\"], { type: \"conjunction\" });\ni18n.compare(\"Élodie\", \"Cem\", { sensitivity: \"base\", numeric: true });"
+      },
+      {
+        "kind": "text",
+        "text": "Relative formatting accepts seconds through years and does not create timers. Applications own scheduling. List styles include long/short/narrow and conjunction/disjunction/unit. Collation is explicit and does not mutate or sort application data. Formatter composables expose reactive computed Intl instances when parts, resolvedOptions, ranges, or specialized operations are needed."
+      }
+    ]
+  },
+  {
+    "id": "type-safety",
+    "title": "Type safety",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "`defineMessages` preserves literal strings. `createI18n({ messages: { en } })` infers nested dot keys up to eight object segments. The instance's `t` rejects unknown keys. Simple unescaped `{name}` placeholders are inferred up to twenty placeholders. No-parameter messages reject extra arguments. Widened JSON strings retain key safety but need generated types for parameter safety."
+      },
+      {
+        "kind": "heading",
+        "text": "Generated ICU schemas"
+      },
+      {
+        "kind": "text",
+        "text": "Full ICU expressions, rich tags and apostrophe escaping cannot be reliably parsed in conditional types. They deliberately use a Values escape hatch until you supply an AST-generated schema. Do not interpret permissive complex-message parameters as proof of runtime validity."
+      },
+      {
+        "kind": "code",
+        "text": "{\n  \"sourceLocale\": \"en\",\n  \"resources\": [{ \"locale\": \"en\", \"file\": \"locales/en.json\" }],\n  \"output\": \"src/messages.gen.d.ts\"\n}"
+      },
+      {
+        "kind": "code",
+        "text": "vibei18n generate --config vibei18n.config.json"
+      },
+      {
+        "kind": "text",
+        "text": "The output contains flat message indexes and augments `Register` from `@usevibejs/i18n`. Include it in the application's tsconfig. `useI18n()` then gets the generated schema automatically, including `.vibe` expressions through the normal Vibe.js content mapper. Each application compilation must use one consistent registered schema. For per-instance schemas, pass `schema: undefined as unknown as MyMessages` to createI18n, or use `useI18n<MyMessages>()` at a context boundary you control. This is an explicit type declaration, not runtime catalog validation."
+      },
+      {
+        "kind": "text",
+        "text": "The parser infers plural/ordinal/number arguments as number, select arguments as string, date/time as Date | number, and ordinary arguments as Value. Nested expressions are traversed. Incompatible uses reject generation. Select values stay string because ICU permits arbitrary strings to resolve to other. Generated rich-tag messages are rejected; use the explicit token API. Very large catalogs should use generated flat schemas and separate TypeScript modules; no unbounded recursive conditional type is used."
+      },
+      {
+        "kind": "text",
+        "text": "`dynamic(key, values)` is the deliberate string-key escape hatch. Runtime-loaded catalogs have no static shape unless you supply a schema. Runtime formatting detects missing parameters regardless of static types. Enable strict TypeScript and use matching UI/compiler/language-tools versions; do not add a wildcard `declare module '*.vibe'`."
+      }
+    ]
+  },
+  {
+    "id": "advanced",
+    "title": "Contexts, direction, persistence and routing",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "Every createI18n instance owns its locale, catalogs, loaders and caches. A plugin instance installs into one app; use a separate instance per independent app. `useI18n()` requires component setup or app.runWithContext. No mutable global translation singleton exists."
+      },
+      {
+        "kind": "heading",
+        "text": "Nested locale scopes"
+      },
+      {
+        "kind": "code",
+        "text": "const child = createLocaleContext({\n  locale: \"ar\",\n  fallbackLocale: \"en\",\n  messages: { ar: { hello: \"مرحباً\" }, en: { hello: \"Hello\" } },\n});"
+      },
+      {
+        "kind": "text",
+        "text": "Call in a component's setup. It returns that component's child context and provides it to descendants; ancestor injection remains unchanged. It owns its own catalog snapshots and loaders. The active effect scope disposes it. `provideI18n(existing)` provides a context without taking ownership; the caller must dispose it. Child changes never propagate to the parent."
+      },
+      {
+        "kind": "heading",
+        "text": "Direction and document ownership"
+      },
+      {
+        "kind": "text",
+        "text": "`dir` resolves platform locale text metadata; when unavailable, Intl.Locale.maximize supplies a script and a documented RTL script set is used. An explicit `direction` option overrides resolution. `useDirection()` returns a computed value. Bind `:dir` and `:lang` to widget roots; use CSS logical properties. This does not infer typography or other cultural preferences."
+      },
+      {
+        "kind": "code",
+        "text": "<DirectionProvider :dir=\"dir\"><main :lang=\"locale\">…</main></DirectionProvider>"
+      },
+      {
+        "kind": "text",
+        "text": "Vibecn's existing DirectionProvider sets the DOM direction used by its components. No competing component context is needed. Global document mutation is disabled by default. `syncDocument(i18n, element?)` claims explicit ownership, synchronizes active locale and direction, and returns cleanup. A second owner of the same element throws. Cleanup restores original attributes only if still equal to values written by this owner. App installation does not automatically claim the host document. Register returned cleanup with app.onUnmount or call inside a scope."
+      },
+      {
+        "kind": "heading",
+        "text": "Negotiation and persistence"
+      },
+      {
+        "kind": "text",
+        "text": "`negotiateLocale(preferences, supported, fallback?)` checks canonical exact and parent candidates in supplied order. Unsupported and malformed external preferences are ignored. Regional siblings are not substituted. Choose precedence by ordering preferences: route, configured locale, saved preference, navigator.languages, fallback, or a different application policy. Browser detection is never implicit."
+      },
+      {
+        "kind": "text",
+        "text": "`localStorageAdapter(key?, window?)` tolerates blocked storage and uses storage events for cross-tab updates. `persistLocale(i18n, storage, options?)` reads initial preference, writes successful changes and suppresses echo writes from external events. It is opt-in, returns an asynchronous cleanup handle, and should be awaited before mount. Options include initial:false after application-level negotiation, setLocale for routing, and onError. It owns no cookies or user-profile behavior; implement read/write/subscribe for those. A calling component scope owns cleanup when present; outside setup register it with app.onUnmount."
+      },
+      {
+        "kind": "heading",
+        "text": "Routing"
+      },
+      {
+        "kind": "code",
+        "text": "import { connectI18nRouter } from \"@usevibejs/i18n/router\";\nconst localization = connectI18nRouter(router, i18n, { namespaces: [\"default\", \"billing\"] });\nawait localization.setLocale(\"tr\");\napp.onUnmount(localization.stop);"
+      },
+      {
+        "kind": "text",
+        "text": "Use existing Vibe.js routes such as /:locale/dashboard. The first path segment is the locale. URL is the source of truth: use the connection's setLocale for routed switches. It preserves path suffix, query and hash. Guards preload namespaces without activating; successful afterEach commits. Aborted, failed and cancelled navigation does not activate. Unsupported prefixes abort by default; unsupported:'ignore' leaves locale alone. Errors from catalog loading abort navigation. Vibe.js owns navigation cancellation. `createI18nRouteGuard` is the standalone preparation guard for custom workflows; pair it with a successful commit hook. Stop removes both hooks. Router cleanup belongs to the caller."
+      },
+      {
+        "kind": "text",
+        "text": "Do not concurrently drive a connected instance with direct i18n.setLocale: the URL remains authoritative. In the showcase route > saved preference > English is chosen before mount. There is no second router or automatic remount."
+      }
+    ]
+  },
+  {
+    "id": "tooling",
+    "title": "Tooling and CI",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "The CLI accepts strict JSON configuration and JSON catalogs. TypeScript catalogs work at runtime; export JSON for the CLI to avoid executing resource code. Each resource declares locale, optional namespace and file. The canonical sourceLocale defines expected keys/parameters per namespace. All declared locales need all declared namespaces unless allowMissingNamespaces:true explicitly permits namespace fallback. The CLI never edits application source or deletes unused translations."
+      },
+      {
+        "kind": "code",
+        "text": "vibei18n check --config vibei18n.config.json\nvibei18n check --json\nvibei18n generate\nvibei18n compile\nvibei18n pseudo --rtl\nvibei18n extract"
+      },
+      {
+        "kind": "text",
+        "text": "Exit 0 means success, 1 validation failure, 2 usage/configuration/I/O failure. `--json` returns structured diagnostics for check and structured errors. Other successful commands print artifact summaries. Check detects invalid JSON, duplicate JSON properties, malformed catalogs, missing/extra keys, invalid ICU, required other branches, incompatible parameter uses, parameter mismatches, invalid locale syntax, and duplicate locale/namespace resources. Diagnostics include file and key, plus offsets when available. Catalog arrays must be genuine FormatJS AST resources. Well-formed locale syntax and host Intl locale support are checked; no embedded IANA registry is maintained. Tooling bounds AST analysis to 64 nested levels."
+      },
+      {
+        "kind": "text",
+        "text": "Generate writes a .d.ts to config.output. Compile writes flat-key pre-parsed AST JSON into config.output as a directory. Plain-text compilation preserves markup-looking text as literal content; use compile --rich or compileCatalog(catalog, { rich: true }) for namespaces consumed through rich(). Pseudo also uses an output directory and emits en-XA.default.json or en-XB.default.json from source catalogs. Change output appropriately for each command. Existing artifact files are overwritten; source catalogs are never targets unless explicitly misconfigured."
+      },
+      {
+        "kind": "heading",
+        "text": "Extraction"
+      },
+      {
+        "kind": "text",
+        "text": "Config.sources is an explicit file list; no files are silently deleted. Extraction parses TypeScript with Oxc and .vibe scripts/templates with the framework's public parser. Literal t('key'), dynamic('key') and .t('key') references include line/column/file. Nonliteral keys produce explicit dynamic references. Optional callee names and namespace are configurable in the programmatic API; adjacent i18n comments can carry descriptions. Alias/import dataflow, arbitrary wrapper functions, v-for source/slot declaration analysis and message descriptor rewriting are not implemented. A parse error fails extraction instead of silently losing references. No automatic removal of translations is performed."
+      },
+      {
+        "kind": "text",
+        "text": "The extraction feature needs the optional @usevibejs/compiler and oxc-parser peers. The compiler version must match the app's UI. `extractMessages` from the tooling entry loads these lazily. Ordinary catalog commands do not import the framework compiler."
+      },
+      {
+        "kind": "heading",
+        "text": "Vite and watch behavior"
+      },
+      {
+        "kind": "code",
+        "text": "import { vibeI18n } from \"@usevibejs/i18n/vite\";\nexport default defineConfig({ plugins: [vibe(), vibeI18n({ config: \"vibei18n.config.json\" })] });"
+      },
+      {
+        "kind": "text",
+        "text": "The plugin validates before builds and on hot updates, and adds configuration/resources to Vite's watch set. Vite handles imported JSON module HMR; the plugin does not patch the compiler, rewrite source, or automatically register HMR catalog replacements. Re-register changed catalog data in a consumer HMR handler if preserving the instance. CLI watch mode is not implemented; use Vite validation or rerun CLI commands from your watcher."
+      },
+      {
+        "kind": "heading",
+        "text": "Pseudolocalization"
+      },
+      {
+        "kind": "text",
+        "text": "Only parsed literal nodes are transformed, then serialized with the official FormatJS AST printer. Variable names, selectors, offsets and argument types remain intact. Accent substitution, configurable expansion (0–3), visible brackets and optional RTL isolates support layout stress testing. en-XA/en-XB are testing conventions, not normal translation quality. Set direction: rtl explicitly for an en-XB context, because the base language en has LTR metadata. The showcase provides a 320px stress frame and independently owned Arabic/Hebrew preview. Overflow inspection is visual; no automated geometric overflow detector is claimed."
+      }
+    ]
+  },
+  {
+    "id": "security-performance",
+    "title": "Security and performance",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "Messages are untrusted text. No eval, Function constructor, HTML insertion or translator-controlled event handlers are used. Render t() output with ordinary Vibe template interpolation. A message resembling script markup remains text. Interpolation values are never logged by diagnostics. Formatting errors expose a safe message; their cause retains the original engine error for application debugging, so do not serialize causes into public telemetry without filtering."
+      },
+      {
+        "kind": "heading",
+        "text": "Rich content"
+      },
+      {
+        "kind": "code",
+        "text": "const tokens = i18n.rich(\"terms\", { product: \"Atlas\" }, [\"strong\", \"link\"]);"
+      },
+      {
+        "kind": "text",
+        "text": "Tokens are strings or `{ type: 'tag', name, children }`. Only explicit allowed names have formatter callbacks. Unknown tags fail formatting. Tokens contain no URLs, executable callbacks, HTML attributes or framework render objects. Map allowed names to fixed application-owned elements and safe application-owned URLs with declarative .vibe composition. Do not assign translated strings to HTML. Arbitrary rich-component rendering is intentionally not provided because Vibe.js 0.1 has no supported public render-function API. Nested token structures are supported by the API; the consumer owns declarative rendering depth."
+      },
+      {
+        "kind": "heading",
+        "text": "Caching"
+      },
+      {
+        "kind": "text",
+        "text": "Each instance has bounded LRU message and Intl formatter caches, default capacity 256. Message keys include locale, content/AST and rich/text mode. Intl keys include kind, locale and sorted option entries. Custom ICU formats and timezone belong to the engine instance. Do not mutate configuration after creation. Replacing a catalog changes the message content key; old compiled messages age out naturally. Namespace revision refs only invalidate translations that read that namespace/fallback chain. No deep watching, DOM traversal, process-wide catalog store or per-message timers are used."
+      },
+      {
+        "kind": "text",
+        "text": "`core.engine.messages` and `core.engine.formatters` expose size/hits/misses and clear(). Catalogs and completed loads remain per-instance until disposal; formatter caches are bounded, catalog count is application-controlled. Preload likely locales and split namespaces where useful. Supply pre-parsed ASTs to avoid runtime parsing for those resources. intl-messageformat's default entry still contains its parser; precompilation alone does not eliminate it from browser output."
+      },
+      {
+        "kind": "text",
+        "text": "The runtime entries contain no Node, Vite, extraction, Oxc, JSON validation or ecosystem integration code. Tooling and router are separate entry points. Packed-consumer checks verify imports and browser tree shaking. Run pnpm bench for actual measurements on the current host; values are observations, not cross-machine guarantees. Refer to the delivery report for measured bundle sizes and test results."
+      }
+    ]
+  },
+  {
+    "id": "ecosystem",
+    "title": "Ecosystem integrations",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "VibeI18n has only a Vibe.js peer for ordinary runtime use. Vibecn, Form, Table, Auth, Query and Use remain optional. The showcase uses published UI/compiler 0.1.0, Vibecn 0.3.0 source, Form 0.1.1 and Table 0.1.1."
+      },
+      {
+        "kind": "heading",
+        "text": "Vibecn"
+      },
+      {
+        "kind": "text",
+        "text": "Install existing primitives through Vibecn's CLI, then copy `compositions/LanguageSwitcher.vibe` into the same UI directory. It accepts explicit locale items, translated labels and a locale-change callback. Combobox supplies search, active-descendant keyboard navigation and selection semantics. DirectionProvider receives i18n.dir. Avoid forcing a second direction context. The published Vibecn 0.3.0 bundled registry does not yet include language-switcher; no working published `add language-switcher` command is promised by this release."
+      },
+      {
+        "kind": "text",
+        "text": "Existing Button/Input/Field labels come from t(). Calendar accepts locale and a label, and keeps date-only values as YYYY-MM-DD. Dialog content slots accept translated text; disable its fixed English close control and supply a translated DialogClose. Combobox's optional default trigger/clear labels are English; the composition disables those controls and uses a translated input label. No mandatory VibeI18n dependency is added to existing primitives."
+      },
+      {
+        "kind": "heading",
+        "text": "VibeForm"
+      },
+      {
+        "kind": "text",
+        "text": "Construct useForm and useField once in setup. Store stable validation codes (e.g. required) and translate when rendering; previously visible errors then update too. Do not capture translated strings in long-lived validation state. Changing display language does not alter the semantic submitted value. The showcase preserves dirty name/email fields while switching languages and renders native accessible error associations."
+      },
+      {
+        "kind": "heading",
+        "text": "VibeTable"
+      },
+      {
+        "kind": "text",
+        "text": "Construct useTable once and keep columns stable. Header callbacks read t(); cells call n()/d(). Keep selection/pagination in VibeTable. Supply i18n.compare to an explicit sortFn for locale-aware ordering. The showcase does not automatically trigger sorting on language change, since reordering data is an application decision. Search uses toLocaleLowerCase for the active locale. Table state and row identity remain stable across locale changes."
+      },
+      {
+        "kind": "heading",
+        "text": "VibeAuth"
+      },
+      {
+        "kind": "text",
+        "text": "Create the existing VibeAuth client/plugin normally. The type-checked examples/integrations/auth.ts helper accepts VibeAuth’s public error ref and localizes only explicitly allowlisted codes. Map safe public error codes to message keys; do not translate raw backend error text, tokens, OAuth parameters, passwords or identifiers. The showcase includes login/registration/reset/verification/session/organization label flows as a local preview; it sends no credentials and is not a functioning authentication service. An optional production VibeAuth backend/session lifecycle is application-owned and is not bundled here."
+      },
+      {
+        "kind": "heading",
+        "text": "VibeQuery"
+      },
+      {
+        "kind": "text",
+        "text": "The tested examples/integrations/query.ts adapter uses the actual VibeQuery QueryClient. A loader can return `queryClient.fetchQuery({ queryKey: ['catalog', locale, namespace, version], queryFn })`. Return parsed validated JSON, not executable remote source. The query cache owns network caching; VibeI18n owns only active catalog snapshots and request deduplication. Invalidate/refetch through QueryClient and call preload(locale, namespaces, true) to replace a catalog. Core loading does not require a query cache."
+      },
+      {
+        "kind": "heading",
+        "text": "VibeUse"
+      },
+      {
+        "kind": "text",
+        "text": "The tested examples/integrations/storage.ts composition uses VibeUse 0.1.1. If the application already uses useStorage, supply its state through the LocaleStorage read/write/subscribe adapter contract rather than adding another persistence writer. useStorage returns data and resource lifecycle methods; its caller owns cleanup. The built-in localStorageAdapter is sufficient without VibeUse. No cross-package cycle is introduced."
+      }
+    ]
+  },
+  {
+    "id": "reference",
+    "title": "API reference and troubleshooting",
+    "blocks": [
+      {
+        "kind": "heading",
+        "text": "Main entry"
+      },
+      {
+        "kind": "text",
+        "text": "createI18n(options) returns core, t, dynamic, rich, locale, requestedLocale, availableLocales, fallbackLocale, isLoading, error, dir, ready, setLocale, preload, register, n, d, dateRange, rt, list, compare, install, use, dispose."
+      },
+      {
+        "kind": "text",
+        "text": "useI18n<Schema>() injects the nearest context; instance.use() retains its inferred schema without injection. defineMessages preserves literal catalogs. defineLocale validates a locale string. createLocaleContext provides and scope-owns a new instance. provideI18n provides an existing instance. i18nKey is a stable typed symbol."
+      },
+      {
+        "kind": "text",
+        "text": "useLocale and useDirection return computed state. useNumberFormat, useDateFormat, useRelativeTimeFormat, useListFormat and usePluralRules accept native Intl options and return computed Intl instances. They create no timers."
+      },
+      {
+        "kind": "text",
+        "text": "canonicalLocale, localeParents, fallbackChain, negotiateLocale and directionOf are pure locale utilities. syncDocument, persistLocale and localStorageAdapter are opt-in browser integrations returning cleanup or adapters. Browser utilities guard unavailable storage; use syncDocument only with an explicit element in non-browser environments."
+      },
+      {
+        "kind": "text",
+        "text": "Public types include Catalog, Message, Values, Value, MessageSchema, InferSchema, Translate, ParametersOf, Keys, Register, RegisteredSchema, CoreOptions, Loader, Diagnostic, LocaleState, Direction, Fallback, I18n, I18nOptions, LocaleStorage and RichToken. Types contain no public any declarations."
+      },
+      {
+        "kind": "heading",
+        "text": "Other entries"
+      },
+      {
+        "kind": "text",
+        "text": "/core exports createCore, I18nCore, IntlEngine, locale utilities and catalog/type definitions. It imports no Vibe.js. Core translation calls are string-based and framework-independent."
+      },
+      {
+        "kind": "text",
+        "text": "/router exports localeFromPath, localizePath, createI18nRouteGuard and connectI18nRouter. The optional adapter uses only public router hooks."
+      },
+      {
+        "kind": "text",
+        "text": "/tooling exports analyzeMessage, messageAST, validateCatalog, readCatalogJSON, generateTypes, compileCatalog, pseudoCatalog, async extractMessages and diagnostic/reference types."
+      },
+      {
+        "kind": "text",
+        "text": "/vite exports vibeI18n. The package binary is vibei18n."
+      },
+      {
+        "kind": "heading",
+        "text": "Configuration"
+      },
+      {
+        "kind": "text",
+        "text": "locale is required. fallbackLocale defaults to false. languageFallback defaults to true. messages supplies default catalogs, namespaces supplies explicit namespace catalogs, and loaders supplies per-locale functions or namespace/function maps. direction overrides automatic direction. timeZone configures ICU and date helpers. formats defines named ICU number/date/time presets. cacheSize defaults to 256 per LRU. missing defaults to key; onDiagnostic is opt-in. schema is a type-only declaration."
+      },
+      {
+        "kind": "heading",
+        "text": "Errors and troubleshooting"
+      },
+      {
+        "kind": "text",
+        "text": "Missing context: install the plugin and call useI18n during setup or app.runWithContext. A context instance cannot install into two apps."
+      },
+      {
+        "kind": "text",
+        "text": "Text does not update: call t() inside the template or a computed getter, rather than storing a string snapshot in setup. Do not destructure .value into a plain string. Await nextTick for DOM assertions."
+      },
+      {
+        "kind": "text",
+        "text": "Unsupported locale: register its catalog/loader or a structural parent; fallbackLocale alone does not declare a supported requested language. BCP47 uses hyphens, not underscores."
+      },
+      {
+        "kind": "text",
+        "text": "Load failure: inspect error and retry setLocale. Loading state represents the latest switch; preload is independent background work and does not set isLoading."
+      },
+      {
+        "kind": "text",
+        "text": "ICU format failure: confirm required values, number/date types, other branches and escaping. Use check in CI for source-located catalog diagnostics. Runtime diagnostics know resource key/locale/namespace but cannot invent the calling source location."
+      },
+      {
+        "kind": "text",
+        "text": "Template type checking: use TypeScript 7.1 and @usevibejs/language-tools contentMappers; include generated types. Compiler and runtime must match exactly."
+      },
+      {
+        "kind": "text",
+        "text": "This is the initial VibeI18n release. No compatibility migration from an earlier VibeI18n API is required. To migrate a dictionary, flatten nested keys consistently, convert custom plural logic to ICU, move global locale state into app instances, and validate every translated catalog before shipping."
+      }
+    ]
+  },
+  {
+    "id": "research",
+    "title": "Framework and engine investigation",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "VibeI18n targets the public Vibe.js 0.1.0 client runtime. Investigation covered Vibe.js AGENTS.md, CONTRACTS.md, ADRs 0001 and 0004, public UI exports, app/injection/watch/scheduler implementations, ref/computed/dependency/effect-scope implementations, component setup and disposal, router/history/types/guards, compiler SFC/template/script/Vite exports, language-tool generation and content-mapper contracts, contract exports, examples, and existing test configurations. Sibling packages were inspected without changing their runtimes."
+      },
+      {
+        "kind": "heading",
+        "text": "Verified framework behavior"
+      },
+      {
+        "kind": "text",
+        "text": "1. Reactive getters link dependencies to the active subscriber; writes propagate dirty flags. No virtual DOM is involved.\n2. Refs expose `.value`; computed values recompute lazily and only propagate changed values. Computed dependencies detach when their final subscriber leaves.\n3. `app.use` invokes a function or object's `install(app)` once per plugin identity.\n4. `app.provide` stores values in that app's context. `app.runWithContext` supplies an explicit injection context and takes precedence over a component context.\n5. Component `provide` creates a prototype-linked provider object. Descendants inject from the nearest ancestor; a component does not inject its own newly provided value.\n6. Each component and rendered block owns scopes. `onScopeDispose` registers cleanup; `app.onUnmount` owns plugin cleanup.\n7. `nextTick` waits for pending DOM jobs and post-flush callbacks. Locale promises commit reactive state; await `nextTick` when inspecting the resulting DOM.\n8. Script setup bindings are returned by setup; the compiler maps template references to setup/props/import expressions. Ref unwrapping occurs at the setup proxy boundary. Calls to `t()` execute within binding effects.\n9. The public language-tools content mapper generates TypeScript from `.vibe` and maps diagnostics to original spans. Apps use TypeScript 7.1 and `tsc -b --runExternalCode`. The library’s declarations are emitted by TypeScript without declaration bundling, preserving the public schema augmentation module identity; JavaScript bundles are built by tsdown. Generated schemas flow through normal TypeScript checking. There is no public third-party language-server plugin hook; no compiler patch is needed.\n10. Router guards return false to abort or a location to redirect. Guard phases await promises; a newer navigation cancels older navigation. `afterEach` receives a failure argument. Catalog preparation belongs in `beforeResolve`; activation belongs only in successful `afterEach`.\n11. The public `vibe()` Vite plugin checks matching UI/compiler versions, parses `.vibe`, transforms TypeScript, and owns HMR. The i18n Vite plugin uses ordinary build/watch hooks only.\n12. The compiler publicly exports `parse`, SFC/template AST types, `analyzeScript`, and `compile`. Extraction uses the SFC/template AST plus Oxc for expression analysis. No private runtime entry point is imported by this library."
+      },
+      {
+        "kind": "heading",
+        "text": "Engine decision"
+      },
+      {
+        "kind": "text",
+        "text": "Verified npm registry versions: intl-messageformat **12.1.4**, @formatjs/icu-messageformat-parser **3.5.22**, Vibe.js UI/compiler/language-tools **0.1.0**. The engine pins its parser to the same version used by tooling. Native Intl supplies NumberFormat, DateTimeFormat, RelativeTimeFormat, ListFormat, Collator, and PluralRules. Full ICU locale data is required from the host; no locale-data polyfill is bundled."
+      },
+      {
+        "kind": "text",
+        "text": "intl-messageformat supports string and pre-parsed AST messages, named arguments, exact plurals, offsets, cardinal and ordinal rules, selects, nesting, escaping, skeletons, custom formats, and rich callback formatting. It evaluates ASTs without dynamic JavaScript compilation. Rich formatting is exposed as inert tokens, since Vibe.js v0.1 does not expose a supported general render-function API. Text is rendered with ordinary `.vibe` interpolation."
+      },
+      {
+        "kind": "text",
+        "text": "The trade-off is a meaningful FormatJS parser cost in the default runtime. Precompiled ASTs avoid repeated parsing but do not remove that parser from intl-messageformat's default entry. Benchmarks and packed consumer bundle measurements are recorded separately; no claim of a parser-free runtime is made."
+      },
+      {
+        "kind": "text",
+        "text": "Sources: [FormatJS engine API](https://formatjs.github.io/docs/intl-messageformat/), [FormatJS ICU syntax](https://formatjs.github.io/docs/core-concepts/icu-syntax/), [Unicode locale identifiers](https://unicode.org/reports/tr35/), [ECMA-402](https://tc39.es/ecma402/). Registry versions were checked with `pnpm view`, then verified against installed manifests and the lockfile."
+      },
+      {
+        "kind": "heading",
+        "text": "Vibecn and optional ecosystem packages"
+      },
+      {
+        "kind": "text",
+        "text": "Vibecn 0.3.0 ships trusted bundled source through `planInit`, `planAdd`, and its CLI; its CLI cannot fetch arbitrary remote registry items. Components use theme tokens, native form controls, browser dialogs/popovers, and collection helpers for focus and keyboard behavior. `DirectionProvider` has `dir?: 'ltr' | 'rtl'` and a default slot, setting the nearest `dir` attribute. The showcase installs existing primitives with the actual CLI. The language switcher is a composition of Combobox parts, with translated labels and native-language names."
+      },
+      {
+        "kind": "text",
+        "text": "VibeForm 0.1.1 exposes stable `useForm`/`useField`; validators return stable public error codes and the UI translates them on each render. VibeTable 0.1.1 exposes `useTable` and TanStack v9 features; column/table identities stay stable while label callbacks and formatting read locale state. Locale collation is explicit; changing language does not automatically re-sort data. VibeAuth exposes `createVibeAuthClient` and `createAuthPlugin`; public errors can be mapped to catalog keys. VibeQuery exposes QueryClient and query APIs, suitable for a loader's fetchQuery. VibeUse exposes explicit storage adapters with lifecycle-owned cleanup. These packages are optional and are absent from VibeI18n's runtime imports."
+      }
+    ]
+  }
+]

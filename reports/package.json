@@ -1,0 +1,9 @@
+{
+  "browserRuntimeBytes": 56433,
+  "browserRuntimeGzipBytes": 17855,
+  "consumer": "Node imports, TypeScript, CLI, browser build and tooling isolation passed",
+  "packageBytes": 52245,
+  "pureDirectionHelperGzipBytes": 535,
+  "runtimeModules": 12,
+  "unpackedBytes": 191383
+}

@@ -1,0 +1,100 @@
+<script setup lang="ts">
+import { computed, ref } from "@usevibejs/ui";
+import { useI18n } from "../../../src/index.ts";
+import { pseudoCatalog } from "../../../tooling/catalog.ts";
+import Preview from "./Preview.vibe";
+import Button from "./components/ui/Button.vibe";
+const { t, locale, core, n, d } = useI18n();
+const message = ref(
+  "{count, plural, =0 {No messages} one {# message for {name}} other {# messages for {name}}}",
+);
+const values = ref('{"count": 12, "name": "Alex"}');
+const result = computed(() => {
+  try {
+    const parsed: unknown = JSON.parse(values.value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw new Error("Values must be a JSON object.");
+    for (const value of Object.values(parsed)) {
+      if (value !== null && !["string", "number", "boolean"].includes(typeof value))
+        throw new Error("Values must be JSON primitives.");
+    }
+    return {
+      output: core.engine.format(
+        locale.value,
+        message.value,
+        parsed as Record<string, string | number | boolean | null>,
+      ),
+      error: "",
+    };
+  } catch (error) {
+    return { output: "", error: error instanceof Error ? error.message : "Invalid message" };
+  }
+});
+const categories = computed(() =>
+  core.engine.plural(locale.value).resolvedOptions().pluralCategories.join(" · "),
+);
+const expansion = ref(0.3),
+  rtl = ref(false),
+  showPreview = ref(true);
+const pseudo = computed(() =>
+  String(pseudoCatalog({ label: t("save") }, { rtl: rtl.value, expansion: expansion.value }).label),
+);
+const comparisons = computed(() =>
+  ["en", "tr", "ru", "ar", "ja"].map((tag) => {
+    try {
+      return { tag, text: core.engine.format(tag, message.value, JSON.parse(values.value)) };
+    } catch {
+      return { tag, text: "—" };
+    }
+  }),
+);
+</script>
+<template>
+  <div class="labs-grid">
+    <section class="panel playground">
+      <span class="eyebrow">THE SAME MESSAGE, EVERYWHERE</span>
+      <h2>{{ t("playground") }}</h2>
+      <label for="icu-message">{{ t("message") }}</label
+      ><textarea id="icu-message" v-model="message" spellcheck="false" rows="4"></textarea
+      ><label for="icu-values">{{ t("values") }}</label
+      ><textarea id="icu-values" v-model="values" spellcheck="false" rows="2"></textarea>
+      <div class="output" aria-live="polite">
+        <span class="eyebrow">{{ t("preview") }} / {{ locale }}</span>
+        <p data-testid="icu-output">{{ result.output }}</p>
+        <p v-if="result.error" role="alert">{{ result.error }}</p>
+      </div>
+      <p class="muted">{{ t("categories") }}: {{ categories }}</p>
+      <div class="comparisons">
+        <div v-for="comparison in comparisons" :key="comparison.tag">
+          <span class="locale-code">{{ comparison.tag }}</span
+          ><span>{{ comparison.text }}</span>
+        </div>
+      </div>
+      <p>{{ n(1234.56) }} · {{ d(0, { dateStyle: "long" }) }}</p>
+    </section>
+    <section class="panel pseudo">
+      <span class="eyebrow">MAKE ROOM FOR TRANSLATION</span>
+      <h2>{{ t("pseudo") }}</h2>
+      <label for="expansion">{{ t("expansion") }}: {{ Math.round(expansion * 100) }}%</label
+      ><input
+        id="expansion"
+        type="range"
+        min="0"
+        max="2"
+        step="0.1"
+        :value="expansion"
+        @input="expansion = Number(($event.target as HTMLInputElement).value)"
+      /><label class="checkbox-label"><input type="checkbox" v-model="rtl" />{{ t("rtl") }}</label>
+      <div class="stress-frame" :dir="rtl ? 'rtl' : 'ltr'">
+        <label>{{ pseudo }}</label
+        ><input :placeholder="pseudo" /><Button class="pseudo-button">{{ pseudo }}</Button>
+        <nav>{{ pseudo }} / {{ pseudo }}</nav>
+      </div>
+      <p class="muted">Preview 320px layouts and long labels. Placeholders remain intact.</p>
+      <Button variant="outline" @click="showPreview = !showPreview">{{
+        showPreview ? "Unmount preview" : "Mount preview"
+      }}</Button>
+    </section>
+  </div>
+  <Preview v-if="showPreview" />
+</template>

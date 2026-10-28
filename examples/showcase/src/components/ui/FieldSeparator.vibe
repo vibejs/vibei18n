@@ -1,0 +1,30 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import type { ClassValue } from "@usevibejs/ui";
+import { cn } from "../../lib/utils.ts";
+import Separator from "./Separator.vibe";
+
+defineOptions({ inheritAttrs: false });
+
+const { class: className } = defineProps<{ class?: ClassValue }>();
+defineSlots<{ default?: (props: {}) => unknown }>();
+</script>
+
+<template>
+  <div
+    data-slot="field-separator"
+    :data-content="!!$slots.default"
+    v-bind="$attrs"
+    :class="
+      cn('relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2', className)
+    "
+  >
+    <Separator class="absolute inset-0 top-1/2" />
+    <span
+      v-if="$slots.default"
+      data-slot="field-separator-content"
+      class="relative mx-auto block w-fit bg-background px-2 text-muted-foreground"
+      ><slot
+    /></span>
+  </div>
+</template>

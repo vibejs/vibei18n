@@ -1,0 +1,50 @@
+<script setup lang="ts">
+import { ref, useId } from "@usevibejs/ui";
+import { useForm, useField } from "@usevibejs/form";
+import { useI18n } from "../../../src/index.ts";
+import Input from "./components/ui/Input.vibe";
+import Button from "./components/ui/Button.vibe";
+const { t, n, d } = useI18n();
+const saved = ref(false);
+const nameId = useId(),
+  emailId = useId();
+const form = useForm({
+  defaultValues: { name: "Alex Morgan", email: "alex@example.test" },
+  onSubmit: () => {
+    saved.value = true;
+  },
+});
+// Store a stable public code, then translate at render time, so existing errors also update.
+const name = useField(form, "name", {
+  validators: { onBlur: ({ value }) => (value.trim() ? undefined : "required") },
+});
+const email = useField(form, "email");
+</script>
+<template>
+  <section class="panel settings-panel">
+    <span class="eyebrow">YOUR WORKSPACE</span>
+    <h2>{{ t("profile") }}</h2>
+    <p class="muted">{{ t("description") }}</p>
+    <form @submit="form.submit" class="settings-form">
+      <label :for="nameId">{{ t("name") }}</label
+      ><Input
+        :id="nameId"
+        data-testid="profile-name"
+        v-model="name.value"
+        :placeholder="t('name')"
+        @blur="name.handleBlur"
+        :aria-invalid="name.invalid || undefined"
+        :aria-describedby="nameId + '-error'"
+      />
+      <p v-if="name.invalid" :id="nameId + '-error'" role="alert">{{ t("required") }}</p>
+      <label :for="emailId">{{ t("email") }}</label
+      ><Input :id="emailId" v-model="email.value" type="email" />
+      <div class="settings-note">
+        <span>{{ n(1450.75, { style: "currency", currency: "USD" }) }}</span
+        ><span>{{ d(Date.UTC(2026, 9, 28), { dateStyle: "long" }) }}</span>
+      </div>
+      <Button type="submit">{{ t("save") }}</Button>
+      <p v-if="saved" role="status">{{ t("saved") }}</p>
+    </form>
+  </section>
+</template>

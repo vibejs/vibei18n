@@ -1,0 +1,151 @@
+<script setup lang="ts">
+import { computed, ref } from "@usevibejs/ui";
+import { useI18n } from "../../../src/index.ts";
+import {
+  useTable,
+  tableFeatures,
+  rowSelectionFeature,
+  rowPaginationFeature,
+  rowSortingFeature,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  createColumnHelper,
+} from "@usevibejs/table";
+import Input from "./components/ui/Input.vibe";
+import Button from "./components/ui/Button.vibe";
+import Table from "./components/ui/Table.vibe";
+import TableHeader from "./components/ui/TableHeader.vibe";
+import TableBody from "./components/ui/TableBody.vibe";
+import TableRow from "./components/ui/TableRow.vibe";
+import TableHead from "./components/ui/TableHead.vibe";
+import TableCell from "./components/ui/TableCell.vibe";
+const { t, n, d, compare, locale } = useI18n();
+const search = ref("");
+const rows = [
+  { id: "1", name: "Aiko Tanaka", email: "aiko@example.test", amount: 2480, status: "paid" },
+  { id: "2", name: "Cem Yılmaz", email: "cem@example.test", amount: 1860, status: "paid" },
+  { id: "3", name: "Élodie Martin", email: "elodie@example.test", amount: 3240, status: "pending" },
+  { id: "4", name: "Noah Fischer", email: "noah@example.test", amount: 920, status: "paid" },
+  { id: "5", name: "Sofia Rossi", email: "sofia@example.test", amount: 1760, status: "pending" },
+  { id: "6", name: "Zoe Park", email: "zoe@example.test", amount: 2190, status: "paid" },
+];
+const data = computed(() =>
+  rows.filter((row) =>
+    row.name.toLocaleLowerCase(locale.value).includes(search.value.toLocaleLowerCase(locale.value)),
+  ),
+);
+const features = tableFeatures({
+  rowSelectionFeature,
+  rowPaginationFeature,
+  rowSortingFeature,
+  paginatedRowModel: createPaginatedRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { localized: (a, b, id) => compare(String(a.getValue(id)), String(b.getValue(id))) },
+});
+const helper = createColumnHelper<typeof features, (typeof rows)[number]>();
+// Keep column definitions and table identity stable. Header callbacks read the locale on demand.
+const table = useTable({
+  features,
+  data,
+  autoResetPageIndex: false,
+  columns: helper.columns([
+    helper.accessor("name", { header: () => t("customer"), sortFn: "localized" }),
+    helper.accessor("amount", { header: () => t("amount") }),
+  ]),
+  getRowId: (row) => row.id,
+  initialState: { pagination: { pageIndex: 0, pageSize: 4 } },
+});
+</script>
+<template>
+  <section class="panel customer-panel">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow">WORKSPACE / 01</span>
+        <h2>{{ t("all") }}</h2>
+      </div>
+      <Input
+        v-model="search"
+        :aria-label="t('search')"
+        :placeholder="t('search')"
+        class="max-w-56"
+      />
+    </div>
+    <div class="table-scroll">
+      <Table
+        ><TableHeader
+          ><TableRow
+            ><TableHead class="w-10"
+              ><input
+                type="checkbox"
+                :aria-label="t('selected')"
+                :checked="table.getIsAllPageRowsSelected()"
+                @change="table.toggleAllPageRowsSelected()" /></TableHead
+            ><TableHead
+              ><button @click="table.getColumn('name')?.toggleSorting()">
+                {{ t("customer") }} ↕
+              </button></TableHead
+            ><TableHead>{{ t("status") }}</TableHead
+            ><TableHead>{{ t("date") }}</TableHead
+            ><TableHead class="text-end">{{ t("amount") }}</TableHead></TableRow
+          ></TableHeader
+        >
+        <TableBody
+          ><TableRow
+            v-for="row in table.getRowModel().rows"
+            :key="row.id"
+            :data-selected="row.getIsSelected() || undefined"
+            ><TableCell
+              ><input
+                type="checkbox"
+                :aria-label="row.original.name"
+                :checked="row.getIsSelected()"
+                @change="row.toggleSelected()" /></TableCell
+            ><TableCell
+              ><div class="customer">
+                <span class="avatar">{{ row.original.name.slice(0, 1) }}</span>
+                <div>
+                  <strong>{{ row.original.name }}</strong
+                  ><small>{{ row.original.email }}</small>
+                </div>
+              </div></TableCell
+            ><TableCell
+              ><span :class="['status', row.original.status]">{{
+                t(row.original.status === "paid" ? "paid" : "pending")
+              }}</span></TableCell
+            ><TableCell class="muted">{{
+              d(Date.UTC(2026, 9, 28), { month: "short", day: "numeric" })
+            }}</TableCell
+            ><TableCell class="text-end money">{{
+              n(row.original.amount, { style: "currency", currency: "USD" })
+            }}</TableCell></TableRow
+          >
+          <TableRow v-if="!table.getRowModel().rows.length"
+            ><TableCell :colspan="5" class="empty">{{ t("empty") }}</TableCell></TableRow
+          ></TableBody
+        ></Table
+      >
+    </div>
+    <div class="table-footer">
+      <span data-testid="selection-count"
+        >{{ t("selected") }}: {{ table.getSelectedRowIds().length }}</span
+      >
+      <div>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!table.getCanPreviousPage()"
+          @click="table.previousPage()"
+          >{{ t("previous") }}</Button
+        ><span class="page-number"
+          >{{ table.atoms.pagination.get().pageIndex + 1 }} / {{ table.getPageCount() }}</span
+        ><Button
+          variant="outline"
+          size="sm"
+          :disabled="!table.getCanNextPage()"
+          @click="table.nextPage()"
+          >{{ t("next") }}</Button
+        >
+      </div>
+    </div>
+  </section>
+</template>

@@ -1,0 +1,13 @@
+<script setup lang="ts">
+import { useI18n } from "../../../src/index.ts";
+const { onDispose } = defineProps<{ onDispose?: () => void }>();
+const { locale, t, setLocale } = useI18n<{ hello: {} }>();
+</script>
+<template>
+  <aside class="independent-widget" :lang="locale" data-testid="independent-app">
+    <span class="eyebrow">INDEPENDENT APP / {{ locale }}</span
+    ><strong>{{ t("hello") }}</strong
+    ><button @click="setLocale(locale === 'tr' ? 'en' : 'tr')">Switch widget locale</button
+    ><button @click="onDispose?.()">Unmount widget</button>
+  </aside>
+</template>

@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "composite": true,
+    "paths": {
+      "@usevibejs/i18n": ["../../src/index.ts"]
+    }
+  },
+  "contentMappers": [
+    {
+      "package": "@usevibejs/language-tools",
+      "extensions": [".vibe"]
+    }
+  ],
+  "include": ["src", "../../src", "../../tooling/catalog.ts", "src/**/*.json"]
+}

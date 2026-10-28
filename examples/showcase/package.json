@@ -1,0 +1,8 @@
+{
+  "name": "vibei18n-showcase",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@usevibejs/ui": "0.1.0"
+  }
+}

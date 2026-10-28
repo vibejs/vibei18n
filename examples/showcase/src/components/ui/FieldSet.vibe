@@ -1,0 +1,29 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import type { ClassValue } from "@usevibejs/ui";
+import { cn } from "../../lib/utils.ts";
+
+defineOptions({ inheritAttrs: false });
+
+const { class: className } = defineProps<{
+  class?: ClassValue;
+  disabled?: boolean;
+}>();
+defineSlots<{ default?: (props: {}) => unknown }>();
+</script>
+
+<template>
+  <fieldset
+    data-slot="field-set"
+    v-bind="$attrs"
+    :disabled="$props.disabled"
+    :class="
+      cn(
+        'flex flex-col gap-6 has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3',
+        className,
+      )
+    "
+  >
+    <slot />
+  </fieldset>
+</template>

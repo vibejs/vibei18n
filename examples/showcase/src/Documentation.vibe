@@ -1,0 +1,59 @@
+<script setup lang="ts">
+import { computed, ref } from "@usevibejs/ui";
+import pages from "./docs.gen.json";
+import Input from "./components/ui/Input.vibe";
+const selected = ref("getting-started"),
+  search = ref(""),
+  copied = ref(false);
+const matches = computed(() =>
+  pages.filter((page) =>
+    `${page.title} ${page.blocks.map((block) => block.text).join(" ")}`
+      .toLowerCase()
+      .includes(search.value.toLowerCase()),
+  ),
+);
+const current = computed(
+  () => matches.value.find((page) => page.id === selected.value) ?? matches.value[0],
+);
+async function copy(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    copied.value = true;
+  } catch {
+    copied.value = false;
+  }
+}
+</script>
+<template>
+  <div class="docs-grid">
+    <nav class="docs-nav" aria-label="Documentation pages">
+      <button
+        v-for="page in matches"
+        :key="page.id"
+        :class="current?.id === page.id && 'active'"
+        @click="
+          selected = page.id;
+          copied = false;
+        "
+      >
+        {{ page.title }}
+      </button>
+    </nav>
+    <article class="panel docs-panel">
+      <Input
+        v-model="search"
+        aria-label="Search documentation"
+        placeholder="Search the documentation…"
+      />
+      <h2>{{ current?.title ?? "No results" }}</h2>
+      <div v-for="(block, index) in current?.blocks ?? []" :key="index">
+        <h3 v-if="block.kind === 'heading'">{{ block.text }}</h3>
+        <div v-else-if="block.kind === 'code'" class="docs-code">
+          <button @click="copy(block.text)">{{ copied ? "Copied" : "Copy" }}</button>
+          <pre><code>{{ block.text }}</code></pre>
+        </div>
+        <p v-else>{{ block.text }}</p>
+      </div>
+    </article>
+  </div>
+</template>

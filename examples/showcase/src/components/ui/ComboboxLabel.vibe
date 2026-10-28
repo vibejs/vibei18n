@@ -1,0 +1,22 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import type { ClassValue } from "@usevibejs/ui";
+import { cn } from "../../lib/utils.ts";
+
+defineOptions({ inheritAttrs: false });
+
+const { class: className } = defineProps<{
+  class?: ClassValue;
+}>();
+defineSlots<{ default?: (props: {}) => unknown }>();
+</script>
+
+<template>
+  <div
+    data-slot="combobox-label"
+    v-bind="$attrs"
+    :class="cn('px-2 py-1.5 text-xs text-muted-foreground', className)"
+  >
+    <slot />
+  </div>
+</template>

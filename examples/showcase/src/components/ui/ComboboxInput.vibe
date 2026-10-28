@@ -1,0 +1,124 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import type { ClassValue, Ref } from "@usevibejs/ui";
+import { injectOverlay } from "../../lib/overlay.ts";
+import { cn } from "../../lib/utils.ts";
+import InputGroup from "./InputGroup.vibe";
+import InputGroupAddon from "./InputGroupAddon.vibe";
+import InputGroupButton from "./InputGroupButton.vibe";
+import InputGroupInput from "./InputGroupInput.vibe";
+
+defineOptions({ inheritAttrs: false });
+
+const {
+  class: className,
+  placeholder,
+  disabled = false,
+  showTrigger = true,
+  showClear = false,
+} = defineProps<{
+  class?: ClassValue;
+  placeholder?: string;
+  disabled?: boolean;
+  showTrigger?: boolean;
+  showClear?: boolean;
+}>();
+defineSlots<{ default?: (props: {}) => unknown }>();
+const combobox = injectOverlay<{
+  list: string;
+  model: Ref<string>;
+  search: Ref<string>;
+  filtering: Ref<boolean>;
+  labels: Map<string, string>;
+  active: Ref<string>;
+  activate: (option: HTMLElement) => void;
+  reset: () => void;
+  onKeydown: (event: KeyboardEvent) => boolean;
+  select: (value: string) => void;
+}>("Combobox");
+
+function onInput(): void {
+  combobox.filtering.value = true;
+  combobox.open.value = true;
+}
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape") {
+    combobox.open.value = false;
+    return;
+  }
+  if (!combobox.open.value && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+    event.preventDefault();
+    combobox.open.value = true;
+    return;
+  }
+  if (combobox.open.value) combobox.onKeydown(event);
+}
+function clear(): void {
+  combobox.model.value = "";
+  combobox.search.value = "";
+}
+</script>
+
+<template>
+  <InputGroup
+    data-slot="combobox-anchor"
+    :data-anchor="combobox.id"
+    :data-disabled="disabled || undefined"
+    :class="cn('w-auto', className)"
+  >
+    <InputGroupInput
+      v-model="combobox.search.value"
+      role="combobox"
+      aria-autocomplete="list"
+      data-slot="combobox-input"
+      :aria-expanded="combobox.open.value"
+      :aria-controls="combobox.list"
+      :aria-activedescendant="(combobox.open.value && combobox.active.value) || undefined"
+      autocomplete="off"
+      :placeholder="placeholder"
+      :disabled="disabled"
+      v-bind="$attrs"
+      @input="onInput"
+      @keydown="onKeydown"
+    />
+    <InputGroupAddon align="inline-end">
+      <InputGroupButton
+        v-if="showClear && combobox.model.value"
+        size="icon-xs"
+        aria-label="Clear"
+        data-slot="combobox-clear"
+        :disabled="disabled"
+        @click="clear"
+        ><svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M18 6 6 18M6 6l12 12" /></svg
+      ></InputGroupButton>
+      <InputGroupButton
+        v-if="showTrigger"
+        size="icon-xs"
+        tabindex="-1"
+        aria-label="Show options"
+        data-slot="combobox-trigger"
+        :disabled="disabled"
+        @click="combobox.open.value = !combobox.open.value"
+        ><svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          class="pointer-events-none size-4 text-muted-foreground"
+        >
+          <path d="m6 9 6 6 6-6" /></svg
+      ></InputGroupButton>
+    </InputGroupAddon>
+  </InputGroup>
+</template>

@@ -1,0 +1,48 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import { nextTick, reactive, ref, useId, watch } from "@usevibejs/ui";
+import { useActiveDescendant } from "../../lib/collection.ts";
+import { provideOverlay } from "../../lib/overlay.ts";
+
+const { name } = defineProps<{ name?: string }>();
+/** The selected item's value. */
+const model = defineModel<string>({ default: () => "" });
+const open = defineModel<boolean>("open", { default: () => false });
+defineSlots<{ default?: (props: {}) => unknown }>();
+const labels = reactive(new Map<string, string>());
+const search = ref("");
+// Typing filters the items; otherwise the input shows the selected label and every item.
+const filtering = ref(false);
+// The list's id: the active-descendant helper queries it before the context exists.
+const list = `${useId()}-list`;
+const context = provideOverlay("Combobox", open, {
+  list,
+  model,
+  search,
+  filtering,
+  labels,
+  ...useActiveDescendant(
+    (): HTMLElement => document.getElementById(list)!,
+    '[data-slot="combobox-item"]',
+  ),
+  select(value: string) {
+    model.value = value;
+    open.value = false;
+  },
+});
+const showSelected = (): void => {
+  filtering.value = false;
+  search.value = labels.get(model.value) ?? "";
+};
+watch(model, showSelected);
+watch(() => labels.get(model.value), showSelected);
+watch(open, (value) => {
+  if (!value) showSelected();
+});
+watch([search, open], () => nextTick(context.reset));
+</script>
+
+<template>
+  <slot />
+  <input v-if="name" type="hidden" :name="name" :value="model" />
+</template>

@@ -1,0 +1,26 @@
+<!-- Adapted from shadcn/ui under MIT. See vibecn.LICENSE. -->
+<script setup lang="ts">
+import type { ClassValue } from "@usevibejs/ui";
+import { cn } from "../../lib/utils.ts";
+
+defineOptions({ inheritAttrs: false });
+
+const { class: className } = defineProps<{
+  class?: ClassValue;
+}>();
+defineSlots<{ default?: (props: {}) => unknown }>();
+</script>
+
+<template>
+  <span
+    data-slot="input-group-text"
+    v-bind="$attrs"
+    :class="
+      cn(
+        'flex items-center gap-2 text-sm text-muted-foreground [&_svg]:pointer-events-none [&_svg:not([class*=\'size-\'])]:size-4',
+        className,
+      )
+    "
+    ><slot
+  /></span>
+</template>

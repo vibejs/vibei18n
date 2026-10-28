@@ -1,0 +1,3 @@
+minimumReleaseAgeExclude:
+  - "@usevibejs/form@0.1.1"
+  - "@usevibejs/table@0.1.1"

@@ -1,0 +1,90 @@
+<script setup lang="ts">
+import { onScopeDispose, ref, watch } from "@usevibejs/ui";
+import { useI18n } from "@usevibejs/i18n";
+import Combobox from "./Combobox.vibe";
+import ComboboxInput from "./ComboboxInput.vibe";
+import ComboboxContent from "./ComboboxContent.vibe";
+import ComboboxList from "./ComboboxList.vibe";
+import ComboboxItem from "./ComboboxItem.vibe";
+import ComboboxEmpty from "./ComboboxEmpty.vibe";
+const { locales, label, emptyLabel, loadingLabel, retryLabel, change } = defineProps<{
+  locales: readonly { value: string; label: string }[];
+  label: string;
+  emptyLabel: string;
+  loadingLabel: string;
+  retryLabel: string;
+  /** Use the router connection for routed apps; otherwise the instance setLocale is used. */
+  change?: (locale: string) => Promise<unknown>;
+}>();
+const { locale, setLocale, isLoading, dir } = useI18n();
+const selection = ref(locale.value);
+const switching = ref(false);
+const failed = ref(false);
+const attempted = ref("");
+let request = 0;
+let disposed = false;
+onScopeDispose(() => {
+  disposed = true;
+  request++;
+});
+watch(locale, (value) => {
+  selection.value = value;
+});
+async function choose(value: string): Promise<void> {
+  if (!value || (value === locale.value && !switching.value)) return;
+  const id = ++request;
+  switching.value = true;
+  failed.value = false;
+  attempted.value = value;
+  try {
+    await (change ?? setLocale)(value);
+  } catch {
+    if (!disposed && id === request) failed.value = true;
+  } finally {
+    if (!disposed && id === request) {
+      selection.value = locale.value;
+      switching.value = false;
+    }
+  }
+}
+</script>
+<template>
+  <div :dir="dir" :aria-busy="isLoading || switching" class="flex w-full max-w-64 flex-col gap-2">
+    <Combobox :model-value="selection" @update:model-value="choose">
+      <ComboboxInput
+        :aria-label="label"
+        :placeholder="label"
+        :show-trigger="false"
+        class="w-full"
+      />
+      <ComboboxContent class="w-64">
+        <ComboboxEmpty>{{ emptyLabel }}</ComboboxEmpty>
+        <ComboboxList>
+          <ComboboxItem v-for="item in locales" :key="item.value" :value="item.value">
+            <span :lang="item.value">{{ item.label }}</span>
+            <svg
+              v-if="locale === item.value"
+              class="ms-auto size-3"
+              viewBox="0 0 12 12"
+              aria-hidden="true"
+            >
+              <path d="m2 6 3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+          </ComboboxItem>
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+    <p v-if="switching || isLoading" role="status" class="text-xs text-muted-foreground">
+      {{ loadingLabel }}
+    </p>
+    <p v-if="failed" role="alert">
+      <button
+        type="button"
+        class="text-start text-xs text-destructive underline"
+        @click="choose(attempted)"
+      >
+        {{ retryLabel }}
+      </button>
+    </p>
+  </div>
+</template>

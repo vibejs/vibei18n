@@ -1,0 +1,47 @@
+{
+  "sourceLocale": "en",
+  "resources": [
+    {
+      "locale": "en",
+      "file": "examples/showcase/src/locales/en.json"
+    },
+    {
+      "locale": "fr",
+      "file": "examples/showcase/src/locales/fr.json"
+    },
+    {
+      "locale": "de",
+      "file": "examples/showcase/src/locales/de.json"
+    },
+    {
+      "locale": "it",
+      "file": "examples/showcase/src/locales/it.json"
+    },
+    {
+      "locale": "pt-BR",
+      "file": "examples/showcase/src/locales/pt-BR.json"
+    },
+    {
+      "locale": "ru",
+      "file": "examples/showcase/src/locales/ru.json"
+    },
+    {
+      "locale": "es",
+      "file": "examples/showcase/src/locales/es.json"
+    },
+    {
+      "locale": "tr",
+      "file": "examples/showcase/src/locales/tr.json"
+    },
+    {
+      "locale": "ko",
+      "file": "examples/showcase/src/locales/ko.json"
+    },
+    {
+      "locale": "ja",
+      "file": "examples/showcase/src/locales/ja.json"
+    }
+  ],
+  "output": "examples/showcase/src/messages.gen.d.ts",
+  "sources": ["examples/showcase/src/App.vibe"]
+}

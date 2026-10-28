@@ -1,0 +1,7 @@
+<script setup lang="ts">
+import { useI18n } from "../../../src/index.ts";
+const { locale, t } = useI18n<{ preview: {} }>();
+</script>
+<template>
+  <p data-testid="nested-descendant" :lang="locale">{{ t("preview") }}</p>
+</template>

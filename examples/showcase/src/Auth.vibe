@@ -1,0 +1,55 @@
+<script setup lang="ts">
+import { ref } from "@usevibejs/ui";
+import { useI18n } from "../../../src/index.ts";
+import Input from "./components/ui/Input.vibe";
+import Button from "./components/ui/Button.vibe";
+const { t } = useI18n();
+const mode = ref<"login" | "register" | "reset" | "verify" | "sessions" | "organization">("login");
+const email = ref(""),
+  password = ref(""),
+  attempted = ref(false);
+const publicCodes = { INVALID_CREDENTIALS: "authError", SESSION_EXPIRED: "authError" } as const;
+const code = ref<keyof typeof publicCodes>("INVALID_CREDENTIALS");
+</script>
+<template>
+  <section class="panel auth">
+    <span class="eyebrow">ACCOUNT FLOWS</span>
+    <h2>{{ t(mode) }}</h2>
+    <nav class="auth-modes">
+      <Button
+        v-for="item in [
+          'login',
+          'register',
+          'reset',
+          'verify',
+          'sessions',
+          'organization',
+        ] as const"
+        :key="item"
+        variant="outline"
+        size="sm"
+        @click="
+          mode = item;
+          attempted = false;
+        "
+        >{{ t(item) }}</Button
+      >
+    </nav>
+    <form @submit.prevent="attempted = true">
+      <label for="auth-email">{{ t("emailLabel") }}</label
+      ><Input id="auth-email" v-model="email" type="email" autocomplete="username" /><label
+        v-if="mode === 'login' || mode === 'register'"
+        for="auth-password"
+        >{{ t("password") }}</label
+      ><Input
+        v-if="mode === 'login' || mode === 'register'"
+        id="auth-password"
+        v-model="password"
+        type="password"
+        autocomplete="current-password"
+      /><Button type="submit">{{ t("signIn") }}</Button>
+    </form>
+    <p v-if="attempted" role="alert">{{ t(publicCodes[code]) }}</p>
+    <p class="muted">{{ t("demoAuth") }}</p>
+  </section>
+</template>
