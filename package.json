@@ -52,7 +52,8 @@
     "dev": "vite examples/showcase --host 127.0.0.1",
     "check": "pnpm build && pnpm typecheck && pnpm lint && oxfmt --check && node tooling/cli.ts check && pnpm test && pnpm build:site && pnpm test:browser && pnpm pack-check",
     "pack-check": "node scripts/pack-check.ts",
-    "bench": "node scripts/bench.ts"
+    "bench": "node scripts/bench.ts",
+    "version-packages": "changeset version && pnpm install --lockfile-only"
   },
   "dependencies": {
     "@formatjs/icu-messageformat-parser": "3.5.22",
